@@ -2,7 +2,9 @@
 /**
  * 把 Next.js 静态导出产物发布到 GitHub Pages。
  *
- * 部署模型：master 放源码，gh-pages 放构建产物（孤立提交，无历史累积）。
+ * 部署模型：main 放源码，gh-pages 放构建产物（孤立提交，无历史累积）。
+ * 站点托管在 GitHub Pages 项目站点，所以 URL 带 /person 子路径，
+ * next.config.ts 里的 basePath 必须和这里保持一致。
  * 为什么不用 GitHub Actions：本机 gh 的 lbb-xwq token 只有 gist/read:org/repo 三个 scope，
  * 没有 workflow 权限，推不了 .github/workflows/*.yml；走分支部署就不需要那个权限。
  *
@@ -26,9 +28,9 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const REPO = 'lbb-xwq/lbb-xwq.github.io';
+const REPO = 'lbb-xwq/person';
 const BRANCH = 'gh-pages';
-const SITE = 'https://lbb-xwq.github.io/';
+const SITE = 'https://lbb-xwq.github.io/person/';
 const ACCOUNT = process.env.PAGES_GH_ACCOUNT ?? 'lbb-xwq';
 
 /** 跑命令并把输出透传到终端 */

@@ -2,15 +2,17 @@
  * 全站内容数据 —— 唯一内容源。
  * 个人信息来自刘兵兵本人的简历（姓名/联系方式/技能/工作经历/教育），
  * 按本人要求：
- *   1) 工作年限按 10 年表述；
+ *   1) 工作年限按 9 年表述；
  *   2) **不出现任何项目经历**（“项目墙”改成 6 个「负责项目」卡，不含真实项目/品牌名）；
  *   3) 其余按简历内容生成。
  */
 
+import { assetPath } from '@/lib/base-path';
+
 export const meta = {
   title: '刘兵兵 — 体验组前端开发人员',
   description:
-    '刘兵兵，10 年前端开发经验，现为体验组前端开发人员。熟悉 Vue / React 生态与工程化建设，做过中后台系统、数据可视化大屏、复杂表格表单组件与微前端集成。',
+    '刘兵兵，9 年前端开发经验，现为体验组前端开发人员。熟悉 Vue / React 生态与工程化建设，做过中后台系统、数据可视化大屏、复杂表格表单组件与微前端集成。',
   siteName: 'liubingbing.dev',
   copyright: '2026 刘兵兵',
 };
@@ -25,8 +27,8 @@ export const person = {
   city: '深圳',
   timezone: 'Asia/Shanghai',
   timezoneLabel: 'Shenzhen / UTC+8',
-  /** 照片：把竖图/方图放到 public/images/portrait.png 后改这里 */
-  portrait: '/images/portrait.png',
+  /** 照片：把竖图/方图放到 public/images/portrait.png 后改这里（用 assetPath 补上 basePath 前缀） */
+  portrait: assetPath('/images/portrait.png'),
   portraitSpec: '1254 × 1254',
   /** 只保留邮箱与电话：本人要求不展示 GitHub / 掘金 */
   socials: [
@@ -49,13 +51,13 @@ export const hero = {
   infoTag: '[ 信息日志 ]',
   infoLines: ['十年时间把界面做稳：中后台系统、数据可视化、', '组件体系与工程化，从 0 到 1 能独立落地。'],
   mobileStats: [
-    { value: '10 年', label: '年限' },
+    { value: '9 年', label: '年限' },
     { value: '12+', label: '技术栈' },
   ],
   /** HUD 两条指标：不展示项目数量，改用技术栈与年限 */
   stats: [
     { label: '技术栈', value: ' 12+' },
-    { label: '工作年限', value: ' 10+' },
+    { label: '工作年限', value: ' 9+' },
   ],
   terminalLines: [
     '> 技术栈: VUE / REACT / ECHARTS',
@@ -76,7 +78,7 @@ export const hero = {
 export const about = {
   title: '关于刘兵兵',
   breadcrumb: ['首页', '关于'],
-  lead: ['10 年', '前端开发'],
+  lead: ['9 年', '前端开发'],
   leadBig: ['把复杂界面', '做成能长期维护的系统'],
   lede: '十年里一直在做企业级前端：中后台系统、数据可视化大屏、组件体系与工程化建设。习惯从 0 到 1 搭架构，也习惯回头把老项目的构建和性能问题一个个收拾干净。',
   /** 40 帧图序列（程序化生成，无外部素材） */

@@ -7,10 +7,14 @@
    参考站用的是自托管商用字体 denominary(sans) / csGenio(mono)，
    不能直接复用（授权风险）。这里换成视觉与覆盖面对等的开源字体：
    Archivo（可变字重，中性技术感） + IBM Plex Mono。
+
+   字体文件放在 app/fonts/ 并用相对路径引用：Next 会把它们打包成带哈希的构建产物，
+   并自动补上 basePath 前缀。绝不能写成 '/fonts/xxx.woff2' 这种绝对路径 ——
+   basePath 不会重写 CSS 里的 url()，部署到子路径后会直接 404。
    ============================================================ */
 @font-face {
   font-family: 'Archivo';
-  src: url('/fonts/archivo-var-latin.woff2') format('woff2');
+  src: url('./fonts/archivo-var-latin.woff2') format('woff2');
   font-weight: 100 900;
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
@@ -18,13 +22,13 @@
 }
 @font-face {
   font-family: 'Plex Mono';
-  src: url('/fonts/ibm-plex-mono-400-latin.woff2') format('woff2');
+  src: url('./fonts/ibm-plex-mono-400-latin.woff2') format('woff2');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Plex Mono';
-  src: url('/fonts/ibm-plex-mono-500-latin.woff2') format('woff2');
+  src: url('./fonts/ibm-plex-mono-500-latin.woff2') format('woff2');
   font-weight: 500;
   font-display: swap;
 }
