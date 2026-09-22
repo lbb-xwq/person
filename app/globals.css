@@ -404,14 +404,142 @@ html[data-motion='reduced'] .scanlines::after {
    实测：preloader_preControls = [1064,717,320,56]（右下角，与导航胶囊同槽位），
    另有一个 128px / line-height 128px / letter-spacing 2.56px 的百分比读数在
    [1218,27,166,137]（右上角，右 40px、上 27px）。
-   实测的 preloader_preOverlay 里只有面板 + 控制条，没有被裁中的说明文字，
-   所以这里把居中区的品牌行/引擎名/日志隐藏（保留 DOM，只是不显示）。
+   实测的 preloader_preOverlay 里只有面板 + 控制条，所以下面把 128px 百分比钉在右上、按钮钉在右下。
+   但这样一来中央就空了 —— 现在把原来被隐藏的品牌行/日志改成左侧 boot 控制台 +
+   左下真实数据状态读数（见本节末尾），左右与右上读数形成配重。
    ============================================================ */
-#preloader .scanlines > span.hud,
-#preloader .scanlines > p.hud,
-#preloader .scanlines > ul {
-  display: none !important;
+/* ============================================================
+   PRELOADER · 左侧 boot 控制台 + 左下系统状态读数
+   ------------------------------------------------------------
+   进站第一屏原本只有右上大百分比与右下按钮，中央太空。
+   这里补两块只读内容（不参与中间那列 flex 的居中计算）：
+     左侧 = 终端风格启动日志（按进度阈值逐行揭示 + 闪烁光标）
+     左下 = 真实数据状态行（视口 / 性能档 / 音频 / 时区 / 进度）
+   右上百分比与右下按钮保持原位。
+   ============================================================ */
+#preloader .pre-console {
+  position: absolute;
+  left: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(440px, 44vw);
+  text-align: left;
+  pointer-events: none;
 }
+#preloader .pre-console__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgb(var(--c-fg));
+}
+#preloader .pre-console__tag {
+  margin: 14px 0 0;
+  color: rgb(var(--c-dim));
+}
+#preloader .pre-log {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+#preloader .pre-log__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--c-dim));
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 360ms var(--ease-out-expo), transform 360ms var(--ease-out-expo);
+}
+#preloader .pre-log__line[data-on='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+#preloader .pre-log__cursor {
+  color: rgb(var(--c-fg));
+  opacity: 1;
+  transform: none;
+}
+#preloader .pre-caret {
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
+/* 状态指示小圆点（复用 pre-dot 的脉冲） */
+#preloader .pre-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background-color: rgb(var(--c-signal));
+  animation: pre-dot 1.6s var(--ease-out-quint) infinite;
+}
+
+/* 左下系统状态：真实视口 / 性能档 / 音频 / 时区 / 进度 */
+#preloader .pre-status {
+  position: absolute;
+  left: 48px;
+  bottom: 40px;
+  width: min(320px, 40vw);
+  text-align: left;
+  pointer-events: none;
+}
+#preloader .pre-status__row {
+  display: grid;
+  grid-template-columns: 5px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  color: rgb(var(--c-dim));
+  border-top: 1px solid rgb(var(--c-line));
+}
+#preloader .pre-status__row:first-child {
+  border-top: 0;
+}
+/* 相邻状态点的脉冲错开半拍，避免整列同时闪 */
+#preloader .pre-status__row + .pre-status__row .pre-dot {
+  animation-delay: 0.5s;
+}
+#preloader .pre-status__val {
+  color: rgb(var(--c-fg));
+  font-family: var(--font-mono);
+}
+
+/* 贯穿面板的扫描线：给静态马赛克一点「在运转」的感觉（纯 transform/opacity） */
+#preloader .pre-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: pre-scan-sweep 3.6s linear infinite;
+}
+@keyframes pre-scan-sweep {
+  0% { transform: translateY(-2vh); opacity: 0; }
+  12%, 88% { opacity: 0.55; }
+  100% { transform: translateY(102vh); opacity: 0; }
+}
+
+/* 窄屏：状态块隐藏（320px 宽会溢出），控制台收窄并上移，避开右上 128px 读数 */
+@media (max-width: 640px) {
+  #preloader .pre-console {
+    left: 22px;
+    top: 42%;
+    width: min(300px, 76vw);
+  }
+  #preloader .pre-status {
+    display: none;
+  }
+}
+
+/* 减少动效：关闭扫描线 / 光标 / 状态点脉冲（其余静态读数照常显示） */
+html[data-motion='reduced'] #preloader .pre-scan,
+html[data-motion='reduced'] #preloader .pre-caret,
+html[data-motion='reduced'] #preloader .pre-dot {
+  animation: none !important;
+}
+
+/* 右上角大百分比读数（参考站实测位置：右 40px、上 27px） */
 #preloader div:has(> .tabular-nums) {
   position: fixed;
   top: 27px;

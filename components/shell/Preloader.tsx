@@ -43,8 +43,8 @@ const MOBILE_TILE_CSS = `
   #preloader [data-tile]:nth-child(n + 9) { display: none; }
 }
 `;
-/** 启动日志出现的进度阈值，与下面的 buildLogs() 一一对应 */
-const LOG_THRESHOLDS = [0.15, 0.45, 0.7, 0.92];
+/** 启动日志出现的进度阈值，与下面的 buildLogs() 一一对应（6 条日志 6 个阈值） */
+const LOG_THRESHOLDS = [0.12, 0.3, 0.48, 0.64, 0.8, 0.94];
 
 const LABELS = {
   engine: '引擎初始化中',
@@ -60,11 +60,15 @@ function buildLogs(): string[] {
   const vw = typeof window === 'undefined' ? 0 : window.innerWidth;
   const vh = typeof window === 'undefined' ? 0 : window.innerHeight;
   const dpr = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 3);
+  // 音轨与性能档也读真实 store，不写死（进站时音频尚未启动，所以标记 STANDBY）
+  const { tier, track } = useStore.getState();
   return [
     `> 载入资料 :: ${person.name}`,
     `> 载入照片 :: ${person.portraitSpec}`,
     `> 检测视口 :: ${vw}×${vh} @${dpr}x`,
     `> 渲染界面 :: ${person.city} / ${person.timezoneLabel}`,
+    `> 挂载音轨 :: ${track.toUpperCase()} / STANDBY`,
+    `> 校验性能档 :: ${tier.toUpperCase()}`,
   ];
 }
 
@@ -81,11 +85,16 @@ function buildLogs(): string[] {
  */
 export default function Preloader() {
   const reduced = useStore(sel.motion) === 'reduced';
+  // 左下状态读数需要的真实数据（音频要等点击手势后才启动，所以进站时是 STANDBY）
+  const tier = useStore(sel.tier);
+  const audioOn = useStore(sel.audioOn);
+  const track = useStore(sel.track);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const countRef = useRef<HTMLSpanElement | null>(null);
+  const statusPctRef = useRef<HTMLSpanElement | null>(null);
   const barRef = useRef<HTMLSpanElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const finishedRef = useRef(false);
@@ -95,10 +104,17 @@ export default function Preloader() {
   const [logs, setLogs] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
   const [done, setDone] = useState(false);
+  // 状态读数里的视口尺寸同样依赖 window，只能在客户端算（null = 未挂载，显示占位符）
+  const [viewport, setViewport] = useState<{ w: number; h: number; dpr: number } | null>(null);
 
-  // 日志依赖视口尺寸，只能客户端生成（否则 SSR/CSR 文本不一致）
+  // 日志与视口尺寸依赖 window/devicePixelRatio，只能客户端生成（否则 SSR/CSR 文本不一致）
   useEffect(() => {
     setLogs(buildLogs());
+    setViewport({
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: Math.min(window.devicePixelRatio || 1, 3),
+    });
   }, []);
 
   // 进度推进：按参考站实测的台阶曲线（6→11→41→64→72→76→90→92→96→100，~1.1s 走完）
@@ -141,6 +157,7 @@ export default function Preloader() {
       const p = curve(t);
       const percent = Math.round(p * 100);
       if (countRef.current) countRef.current.textContent = String(percent).padStart(3, '0');
+      if (statusPctRef.current) statusPctRef.current.textContent = `${String(percent).padStart(3, '0')}%`;
       if (barRef.current) barRef.current.style.transform = `scaleX(${p.toFixed(4)})`;
       useStore.getState().setBoot(p);
 
@@ -288,6 +305,9 @@ export default function Preloader() {
         ))}
       </div>
 
+      {/* 贯穿面板的扫描线：纯装饰，给静态马赛克一点「在运转」的感觉 */}
+      <div className="pre-scan" aria-hidden />
+
       {/* 中央读数层：铺在面板之上，点按钮时先淡出 */}
       <div
         ref={centerRef}
@@ -296,16 +316,64 @@ export default function Preloader() {
       >
         <div className="noise-screen" aria-hidden />
 
-        <span className="hud" style={{ color: 'rgb(var(--c-dim))' }}>
-          {person.name} / {person.role}
-        </span>
+        {/* 左侧启动控制台：原来这里的品牌行/日志被 CSS 隐藏后中央太空，改成显式的 boot 读数 */}
+        <div className="pre-console" aria-hidden>
+          <div className="pre-console__head">
+            <span className="pre-dot" />
+            <span className="hud">{LABELS.engine}</span>
+          </div>
+          <p className="hud pre-console__tag">
+            {person.name} / {person.role}
+          </p>
+          <ul className="pre-log">
+            {logs.map((line, index) => (
+              <li
+                key={line}
+                className="hud-sm pre-log__line"
+                data-on={index < logCount ? 'true' : 'false'}
+              >
+                {line}
+              </li>
+            ))}
+            <li className="hud-sm pre-log__line pre-log__cursor" data-on="true">
+              <span>&gt; 等待引擎就绪</span>
+              <span className="pre-caret">_</span>
+            </li>
+          </ul>
+        </div>
 
-        <p
-          className="hud mt-4"
-          style={{ color: 'rgb(var(--c-fg))', letterSpacing: '0.34em', fontSize: 12 }}
-        >
-          {LABELS.engine}
-        </p>
+        {/* 左下系统状态：全部读真实数据，不写死 */}
+        <div className="pre-status hud-sm" aria-hidden>
+          <div className="pre-status__row">
+            <span className="pre-dot" />
+            <span>视口 VIEWPORT</span>
+            <span className="pre-status__val">
+              {viewport ? `${viewport.w}×${viewport.h} @${viewport.dpr}x` : '—'}
+            </span>
+          </div>
+          <div className="pre-status__row">
+            <span className="pre-dot" />
+            <span>性能档 TIER</span>
+            <span className="pre-status__val">{tier.toUpperCase()}</span>
+          </div>
+          <div className="pre-status__row">
+            <span className="pre-dot" />
+            <span>音频 AUDIO</span>
+            <span className="pre-status__val">{audioOn ? track.toUpperCase() : 'STANDBY'}</span>
+          </div>
+          <div className="pre-status__row">
+            <span className="pre-dot" />
+            <span>时区 TZ</span>
+            <span className="pre-status__val">{person.timezoneLabel}</span>
+          </div>
+          <div className="pre-status__row">
+            <span className="pre-dot" />
+            <span>进度 BOOT</span>
+            <span className="pre-status__val" ref={statusPctRef}>
+              000%
+            </span>
+          </div>
+        </div>
 
         <div className="mt-6 flex items-baseline gap-2">
           <span
@@ -340,24 +408,6 @@ export default function Preloader() {
         <span className="sr-only" role="status" aria-live="polite">
           {ready ? '初始化完成，点击进入' : '正在初始化'}
         </span>
-
-        <ul className="mt-8 min-h-[76px] w-full list-none space-y-1 p-0" aria-hidden>
-          {logs.map((line, index) => (
-            <li
-              key={line}
-              className="hud-sm"
-              style={{
-                color: 'rgb(var(--c-dim))',
-                opacity: index < logCount ? 1 : 0,
-                transform: index < logCount ? 'translateY(0)' : 'translateY(4px)',
-                transition: 'opacity 360ms var(--ease-out-expo), transform 360ms var(--ease-out-expo)',
-              }}
-            >
-              {line}
-            </li>
-          ))}
-        </ul>
-
 
         {ready ? (
           <button
