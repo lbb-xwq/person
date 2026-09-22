@@ -27,8 +27,12 @@ export const person = {
   city: '深圳',
   timezone: 'Asia/Shanghai',
   timezoneLabel: 'Shenzhen / UTC+8',
-  /** 照片：把竖图/方图放到 public/images/portrait.png 后改这里（用 assetPath 补上 basePath 前缀） */
-  portrait: assetPath('/images/portrait.png'),
+  /** 照片：
+   *  把竖图/方图放到 public/images/portrait.webp 后改这里（用 assetPath 补上 basePath 前缀）。
+   *  来源图 1254×1254 PNG 有 1.7MB，已转成 WebP(q86) 压到 129KB；
+   *  原图可从 git 历史取回：git show c6a08b0:public/images/portrait.png > portrait.png
+   */
+  portrait: assetPath('/images/portrait.webp'),
   portraitSpec: '1254 × 1254',
   /** 只保留邮箱与电话：本人要求不展示 GitHub / 掘金 */
   socials: [

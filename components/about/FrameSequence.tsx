@@ -65,7 +65,7 @@ function hash01(n: number): number {
  * /about 的真实头像。
  * 参考站这一块是**人物照片的 40 帧序列**（/images/frames/frame-1.webp … 40），
  * 我们用「一张真实照片作底图 + 逐帧程序化叠加层（网格 / 同心矩形 / 游标 / 帧号）」
- * 等价实现：把 public/images/portrait.jpg 放进来，这里显示的就是本人。
+ * 等价实现：把 public/images/portrait.webp 放进来，这里显示的就是本人。
  */
 let __aboutPhoto: HTMLImageElement | null = null;
 function loadAboutPhoto() {
