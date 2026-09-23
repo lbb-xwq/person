@@ -350,6 +350,13 @@ html[data-motion='reduced'] .scanlines::after {
 #preloader [data-tile]:nth-child(-n + 7) {
   border: 1px solid rgba(255, 255, 255, 0.024);
 }
+/* 中缝：tile 5/6/7 的右边框正好落在 50%，会连成一条贯穿全高的硬线，
+   看上去像屏幕被劈成两半。只去掉这条中缝，马赛克其余细线照留。 */
+#preloader [data-tile]:nth-child(5),
+#preloader [data-tile]:nth-child(6),
+#preloader [data-tile]:nth-child(7) {
+  border-right-color: transparent;
+}
 #preloader [data-tile]:nth-child(1) {
   grid-area: 1 / 1 / 2 / 2;
   background-color: rgba(0, 0, 0, 0.08) !important;
@@ -503,7 +510,8 @@ html[data-motion='reduced'] .scanlines::after {
   font-family: var(--font-mono);
 }
 
-/* 贯穿面板的扫描线：给静态马赛克一点「在运转」的感觉（纯 transform/opacity） */
+/* 贯穿面板的扫描线：纯装饰，给静态马赛克一点「在运转」的感觉。
+   中央现在有了核心环，这条线降一档存在感，不要抢戏。 */
 #preloader .pre-scan {
   position: absolute;
   left: 0;
@@ -511,8 +519,8 @@ html[data-motion='reduced'] .scanlines::after {
   top: 0;
   height: 1px;
   pointer-events: none;
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5), transparent);
-  animation: pre-scan-sweep 3.6s linear infinite;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: pre-scan-sweep 4.4s linear infinite;
 }
 @keyframes pre-scan-sweep {
   0% { transform: translateY(-2vh); opacity: 0; }
@@ -520,27 +528,50 @@ html[data-motion='reduced'] .scanlines::after {
   100% { transform: translateY(102vh); opacity: 0; }
 }
 
-/* 窄屏：状态块隐藏（320px 宽会溢出），控制台收窄并上移，避开右上 128px 读数 */
+/* 窄屏：状态块隐藏（320px 宽会溢出），控制台收窄并上移，
+   给中央核心环腾出位置（原来 top:42% 会和核心撞在一起） */
 @media (max-width: 640px) {
   #preloader .pre-console {
     left: 22px;
-    top: 42%;
-    width: min(300px, 76vw);
+    top: 26%;
+    width: min(300px, 78vw);
   }
   #preloader .pre-status {
     display: none;
   }
 }
 
-/* 减少动效：关闭扫描线 / 光标 / 状态点脉冲（其余静态读数照常显示） */
-html[data-motion='reduced'] #preloader .pre-scan,
-html[data-motion='reduced'] #preloader .pre-caret,
-html[data-motion='reduced'] #preloader .pre-dot {
-  animation: none !important;
+/* 窄桌面（≤1200px）：控制台收窄，否则 440px 宽会和 208px 的核心环重叠 */
+@media (max-width: 1200px) and (min-width: 641px) {
+  #preloader .pre-console {
+    width: min(360px, 30vw);
+  }
 }
 
-/* 右上角大百分比读数（参考站实测位置：右 40px、上 27px） */
-#preloader div:has(> .tabular-nums) {
+/* 减少动效：关闭扫描线 / 光标 / 状态点脉冲与核心旋转，并清掉所有视差/磁吸位移 */
+html[data-motion='reduced'] #preloader .pre-scan,
+html[data-motion='reduced'] #preloader .pre-caret,
+html[data-motion='reduced'] #preloader .pre-dot,
+html[data-motion='reduced'] #preloader .pre-core__orbit {
+  animation: none !important;
+}
+html[data-motion='reduced'] #preloader .pre-core,
+html[data-motion='reduced'] #preloader .pre-core__track,
+html[data-motion='reduced'] #preloader .pre-status,
+html[data-motion='reduced'] #preloader button {
+  transform: none !important;
+}
+/* 控制台靠 translateY(-50%) 竖直居中，清位移时必须把它保住 */
+html[data-motion='reduced'] #preloader .pre-console {
+  transform: translateY(-50%) !important;
+}
+html[data-motion='reduced'] #preloader .pre-spot {
+  display: none !important;
+}
+
+/* 右上角大百分比读数（参考站实测位置：右 40px、上 27px）。
+   用 .pre-count 显式标记，避免 :has(> .tabular-nums) 误伤中央核心里的等宽读数。 */
+#preloader .pre-count {
   position: fixed;
   top: 27px;
   right: 40px;
@@ -548,7 +579,7 @@ html[data-motion='reduced'] #preloader .pre-dot {
   margin: 0;
   justify-content: flex-end;
 }
-#preloader .tabular-nums {
+#preloader .pre-count .tabular-nums {
   font-size: 128px;
   line-height: 128px;
   letter-spacing: 2.56px;
@@ -564,11 +595,233 @@ html[data-motion='reduced'] #preloader .pre-dot {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(85, 85, 85, 0.3);
-  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgb(var(--c-line-2));
+  background-color: rgba(255, 255, 255, 0.03);
+  color: rgb(var(--c-fg));
   -webkit-backdrop-filter: blur(15px);
   backdrop-filter: blur(15px);
   border-radius: 12px;
+  /* 磁吸位移：指针靠近时由 JS 写 --btn-x/--btn-y（reduced 下被上面的规则清零） */
+  transform: translate3d(var(--btn-x, 0px), var(--btn-y, 0px), 0);
+  transition:
+    transform 420ms var(--ease-out-expo),
+    border-color 420ms var(--ease-out-expo),
+    background-color 420ms var(--ease-out-expo);
+  will-change: transform;
+}
+/* 悬停：两枚角标从内侧伸出 + 边框提亮（伪元素实现，不额外增加 DOM） */
+#preloader button::before,
+#preloader button::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgb(var(--c-signal));
+  opacity: 0;
+  transition:
+    opacity 420ms var(--ease-out-expo),
+    transform 520ms var(--ease-out-expo);
+}
+#preloader button::before {
+  top: 5px;
+  left: 5px;
+  border-right: 0;
+  border-bottom: 0;
+  transform: translate3d(6px, 6px, 0);
+}
+#preloader button::after {
+  right: 5px;
+  bottom: 5px;
+  border-left: 0;
+  border-top: 0;
+  transform: translate3d(-6px, -6px, 0);
+}
+#preloader button:hover::before,
+#preloader button:hover::after {
+  opacity: 0.85;
+  transform: translate3d(0, 0, 0);
+}
+#preloader button:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+/* ============================================================
+   PRELOADER · 中央 boot 核心 + 指针交互
+   ------------------------------------------------------------
+   进站第一屏原来中央只剩一条 320px 的孤立进度线（大百分比去了右上、
+   按钮去了右下），看着既空又怪。这里换成「环 + 带标签轨道」：
+     刻度定气场 → 旋转虚线环表示在运转 → 进度弧承载真实进度 →
+     环心读数给百分比一个落点 → 底部带标签的轨道收编那条孤立的线。
+   逐帧量（进度弧 dashoffset / 轨道填充 / 环心读数）由组件里的 rAF 直写 DOM，
+   这里只负责长相；指针交互（视差 / 聚光 / 追踪 / 磁吸）的变量由 JS 写。
+   ============================================================ */
+#preloader { overflow: hidden; }
+
+#preloader .pre-core {
+  position: relative;
+  /* 大屏上核心要更有分量，窄桌面（1024）又得给左侧控制台让位，所以用 clamp */
+  width: clamp(180px, 16vw, 232px);
+  height: clamp(180px, 16vw, 232px);
+  /* 近层视差位移最大，与控制台/状态块的反向位移一起形成纵深 */
+  transform: translate3d(calc(var(--par-x, 0px) * 1.5), calc(var(--par-y, 0px) * 1.5), 0);
+  pointer-events: none;
+}
+/* 环后极淡的辉光：把核心从纯黑的平面里“抬”起来，不至于飘在半空 */
+#preloader .pre-core::before {
+  content: '';
+  position: absolute;
+  inset: -28%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.05), transparent 66%);
+  pointer-events: none;
+}
+#preloader .pre-core__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#preloader .pre-core__tick {
+  stroke: rgb(var(--c-line-2));
+  stroke-width: 1;
+}
+#preloader .pre-core__tick--major {
+  stroke: rgb(var(--c-dim));
+}
+#preloader .pre-core__orbit {
+  fill: none;
+  stroke: rgb(var(--c-line-2));
+  stroke-width: 1;
+  stroke-dasharray: 4 10;
+  /* view-box + 50% 50% 在 200×200 的 viewBox 里就是绕圆心 (100,100) 旋转 */
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: pre-core-spin 14s linear infinite;
+}
+#preloader .pre-core__rail {
+  fill: none;
+  stroke: rgb(var(--c-line));
+  stroke-width: 1;
+}
+#preloader .pre-core__arc {
+  fill: none;
+  stroke: rgb(var(--c-signal));
+  stroke-width: 1.5;
+  /* dashoffset 每帧直写，绝不能加 transition，否则会和 rAF 打架 */
+}
+#preloader .pre-core__needle {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+#preloader .pre-core__needle line {
+  stroke: rgb(var(--c-signal));
+  stroke-width: 1.5;
+}
+#preloader .pre-core__readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+#preloader .pre-core__pct {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--c-fg));
+}
+#preloader .pre-core__label {
+  color: rgb(var(--c-dim));
+}
+
+/* 底部带标签的轨道：把「进度」从一条孤立的线变成一个有上下文的控件 */
+#preloader .pre-core__track {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  width: min(340px, 76vw);
+  transform: translate3d(calc(var(--par-x, 0px) * 0.7), calc(var(--par-y, 0px) * 0.7), 0);
+  pointer-events: none;
+}
+#preloader .pre-core__track-label {
+  color: rgb(var(--c-dim));
+  white-space: nowrap;
+}
+#preloader .pre-core__track-rail {
+  position: relative;
+  display: block;
+  height: 1px;
+  overflow: hidden;
+  background-color: rgb(var(--c-line));
+}
+#preloader .pre-core__track-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background-color: rgb(var(--c-signal));
+}
+#preloader .pre-core__track-val {
+  color: rgb(var(--c-fg));
+  white-space: nowrap;
+}
+
+@keyframes pre-core-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 光标聚光：固定尺寸径向渐变靠 transform 跟手，比每帧重建渐变便宜 */
+#preloader .pre-spot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 900px;
+  height: 900px;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.055), transparent 62%);
+  transition: opacity 320ms var(--ease-out-expo);
+  will-change: transform;
+}
+
+/* 视差：控制台 / 状态块与核心反向位移（变量由 JS 写在 #preloader 上） */
+#preloader .pre-console {
+  transform: translate3d(
+    calc(var(--par-x, 0px) * -0.5),
+    calc(-50% + var(--par-y, 0px) * -0.5),
+    0
+  );
+}
+#preloader .pre-status {
+  transform: translate3d(calc(var(--par-x, 0px) * -0.4), calc(var(--par-y, 0px) * -0.4), 0);
+}
+
+/* 窄屏：核心收小，聚光与指针标记关掉（触屏没有 hover 语义） */
+@media (max-width: 640px) {
+  #preloader .pre-core {
+    width: 148px;
+    height: 148px;
+  }
+  #preloader .pre-core__pct {
+    font-size: 22px;
+  }
+  #preloader .pre-core__track {
+    width: min(300px, 82vw);
+    margin-top: 16px;
+  }
+  #preloader .pre-spot,
+  #preloader .pre-core__needle {
+    display: none;
+  }
 }
 /* ============================================================
    PRELOADER · 加强进站遮罩（原来太淡）

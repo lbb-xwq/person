@@ -7,6 +7,7 @@ import { CustomEase } from 'gsap/CustomEase';
 import { DEFAULT_TRACK_ID, startAudio } from '@/lib/audio';
 import { person } from '@/lib/data/content';
 import { useStore, sel } from '@/lib/store';
+import { isFinePointer } from '@/lib/tier';
 
 gsap.registerPlugin(CustomEase);
 // 令牌里的 --ease-in-out-quint = cubic-bezier(.83,0,.17,1)，GSAP 需要一个具名缓动才能用同一个曲线
@@ -46,10 +47,23 @@ const MOBILE_TILE_CSS = `
 /** 启动日志出现的进度阈值，与下面的 buildLogs() 一一对应（6 条日志 6 个阈值） */
 const LOG_THRESHOLDS = [0.12, 0.3, 0.48, 0.64, 0.8, 0.94];
 
+/**
+ * 中央核心环（viewBox 200×200，圆心 100,100）的几何常量。
+ * 进度弧用「周长 ×(1-p)」换算成 stroke-dashoffset，所以半径必须和 JSX 里的 r 是同一个来源。
+ */
+const CORE_RADIUS = 62;
+const CORE_CIRCUMFERENCE = 2 * Math.PI * CORE_RADIUS;
+/** 外圈刻度：每 6° 一根共 60 根，每 5 根（30°）加长成主刻度 */
+const CORE_TICKS = Array.from({ length: 60 }, (_, i) => ({ i, major: i % 5 === 0 }));
+/** 光标聚光层的边长：固定尺寸 + transform 平移，比每帧重建 radial-gradient 便宜 */
+const SPOT_SIZE = 900;
+
 const LABELS = {
   engine: '引擎初始化中',
   enter: '点击进入',
   hint: '音频引擎需要一次点击才能启动',
+  core: 'BOOT',
+  track: 'BOOT SEQUENCE',
 } as const;
 
 /**
@@ -97,6 +111,13 @@ export default function Preloader() {
   const statusPctRef = useRef<HTMLSpanElement | null>(null);
   const barRef = useRef<HTMLSpanElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  // 中央 boot 核心：环、进度弧、指向光标的标记、中心读数、底部轨道读数、光标聚光
+  const coreRef = useRef<HTMLDivElement | null>(null);
+  const arcRef = useRef<SVGCircleElement | null>(null);
+  const needleRef = useRef<SVGGElement | null>(null);
+  const corePctRef = useRef<HTMLSpanElement | null>(null);
+  const coreValRef = useRef<HTMLSpanElement | null>(null);
+  const spotRef = useRef<HTMLDivElement | null>(null);
   const finishedRef = useRef(false);
   const readyRef = useRef(false);
 
@@ -159,6 +180,10 @@ export default function Preloader() {
       if (countRef.current) countRef.current.textContent = String(percent).padStart(3, '0');
       if (statusPctRef.current) statusPctRef.current.textContent = `${String(percent).padStart(3, '0')}%`;
       if (barRef.current) barRef.current.style.transform = `scaleX(${p.toFixed(4)})`;
+      // 中央核心同样是逐帧量：弧长 = 周长 ×(1-p)，读数与右上/左下同一份 p
+      if (corePctRef.current) corePctRef.current.textContent = String(percent).padStart(3, '0');
+      if (coreValRef.current) coreValRef.current.textContent = `${String(percent).padStart(3, '0')}%`;
+      if (arcRef.current) arcRef.current.style.strokeDashoffset = (CORE_CIRCUMFERENCE * (1 - p)).toFixed(2);
       useStore.getState().setBoot(p);
 
       const visible = LOG_THRESHOLDS.filter((threshold) => p >= threshold).length;
@@ -271,6 +296,115 @@ export default function Preloader() {
     };
   }, [done]);
 
+  // 指针交互：视差 + 光标聚光 + 指针追踪 + 按钮磁吸。
+  // 只在「精确指针 + 非减少动效」时启用 —— 触屏没有 hover 语义，跟随光标纯属浪费。
+  // 所有逐帧量都写 DOM 属性/变量，不 setState；指针停下后 rAF 主动退出，空闲即零成本。
+  useEffect(() => {
+    if (done || reduced) return;
+    if (typeof window === 'undefined' || !isFinePointer()) return;
+    const root = rootRef.current;
+    const needle = needleRef.current;
+    const spot = spotRef.current;
+    if (!root || !needle || !spot) return;
+
+    const PAR_X = 10; // 水平视差幅度（px）
+    const PAR_Y = 8; // 垂直视差幅度（px）
+    const EASE = 0.12; // 每帧向目标插值比例
+
+    let targetX = 0;
+    let targetY = 0;
+    let curX = 0;
+    let curY = 0;
+    let needleTarget = 0;
+    let needleCur = 0;
+    let raf = 0;
+    let running = false;
+
+    const loop = () => {
+      curX += (targetX - curX) * EASE;
+      curY += (targetY - curY) * EASE;
+      needleCur += (needleTarget - needleCur) * EASE;
+      root.style.setProperty('--par-x', `${curX.toFixed(2)}px`);
+      root.style.setProperty('--par-y', `${curY.toFixed(2)}px`);
+      needle.style.transform = `rotate(${needleCur.toFixed(2)}deg)`;
+
+      // 全部收敛后停掉循环：静止时页面不该还在逐帧工作
+      const settled =
+        Math.abs(targetX - curX) < 0.05 &&
+        Math.abs(targetY - curY) < 0.05 &&
+        Math.abs(needleTarget - needleCur) < 0.05;
+      if (settled) {
+        running = false;
+        raf = 0;
+        return;
+      }
+      raf = window.requestAnimationFrame(loop);
+    };
+
+    const kick = () => {
+      if (running) return;
+      running = true;
+      raf = window.requestAnimationFrame(loop);
+    };
+
+    const onMove = (event: PointerEvent) => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const x = event.clientX;
+      const y = event.clientY;
+
+      targetX = (x / w) * 2 * PAR_X - PAR_X;
+      targetY = (y / h) * 2 * PAR_Y - PAR_Y;
+
+      // 聚光层是固定尺寸的圆，靠 translate 跟手，比每帧重建渐变便宜得多
+      spot.style.transform = `translate3d(${x - SPOT_SIZE / 2}px, ${y - SPOT_SIZE / 2}px, 0)`;
+      spot.style.opacity = '1';
+
+      // 指针标记：从核心中心指向光标（+90° 是因为标记线画在正上方）
+      const core = coreRef.current;
+      if (core) {
+        const rect = core.getBoundingClientRect();
+        const dx = x - (rect.left + rect.width / 2);
+        const dy = y - (rect.top + rect.height / 2);
+        needleTarget = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+      }
+
+      // 按钮磁吸：只在指针进入按钮外扩范围时轻微吸附，按垂直方向权重更大（横向留白更宽）
+      const button = buttonRef.current;
+      if (button) {
+        const rect = button.getBoundingClientRect();
+        const bx = x - (rect.left + rect.width / 2);
+        const by = y - (rect.top + rect.height / 2);
+        const near =
+          Math.abs(bx) < rect.width / 2 + 80 && Math.abs(by) < rect.height / 2 + 80;
+        button.style.setProperty('--btn-x', near ? `${(bx * 0.06).toFixed(2)}px` : '0px');
+        button.style.setProperty('--btn-y', near ? `${(by * 0.18).toFixed(2)}px` : '0px');
+      }
+
+      kick();
+    };
+
+    const onLeave = () => {
+      targetX = 0;
+      targetY = 0;
+      spot.style.opacity = '0';
+      const button = buttonRef.current;
+      if (button) {
+        button.style.setProperty('--btn-x', '0px');
+        button.style.setProperty('--btn-y', '0px');
+      }
+      kick();
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    document.documentElement.addEventListener('pointerleave', onLeave, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      document.documentElement.removeEventListener('pointerleave', onLeave);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [done, reduced]);
+
   if (done) return null;
 
   return (
@@ -315,6 +449,9 @@ export default function Preloader() {
         style={{ position: 'absolute', inset: 0 }}
       >
         <div className="noise-screen" aria-hidden />
+
+        {/* 光标聚光：跟着指针平移的径向渐变，给静态马赛克一点呼吸（reduced/触屏不启用） */}
+        <div ref={spotRef} className="pre-spot" aria-hidden />
 
         {/* 左侧启动控制台：原来这里的品牌行/日志被 CSS 隐藏后中央太空，改成显式的 boot 读数 */}
         <div className="pre-console" aria-hidden>
@@ -375,7 +512,8 @@ export default function Preloader() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-baseline gap-2">
+        {/* 右上角大百分比：位置由 CSS 的 .pre-count 钉住，不加 .tabular-nums 之外的类 */}
+        <div className="pre-count mt-6 flex items-baseline gap-2">
           <span
             ref={countRef}
             className="font-mono text-[44px] leading-none tabular-nums md:text-[64px]"
@@ -388,20 +526,62 @@ export default function Preloader() {
           </span>
         </div>
 
-        <div
-          className="mt-6 h-px w-[min(320px,72vw)] overflow-hidden"
-          style={{ backgroundColor: 'rgb(var(--c-line))' }}
-          aria-hidden
-        >
-          <span
-            ref={barRef}
-            className="block h-full origin-left"
-            style={{
-              backgroundColor: 'rgb(var(--c-signal))',
-              transform: 'scaleX(0)',
-              transition: 'transform 120ms linear',
-            }}
-          />
+        {/* 中央 boot 核心：刻度 + 旋转虚线环 + 进度弧 + 指向光标的标记 + 环心读数。
+            原来中央只剩一条孤立的 320px 进度线（百分比去了右上、按钮去了右下），
+            又空又怪；现在用圆环把「正在初始化」讲完整，百分比也落到了环心。 */}
+        <div ref={coreRef} className="pre-core" aria-hidden>
+          <svg className="pre-core__svg" viewBox="0 0 200 200" role="presentation">
+            {/* 外圈刻度：60 根短刻度，每 5 根加长一根（每 30° 一根主刻度） */}
+            <g className="pre-core__ticks">
+              {CORE_TICKS.map((tick) => (
+                <line
+                  key={tick.i}
+                  className={tick.major ? 'pre-core__tick pre-core__tick--major' : 'pre-core__tick'}
+                  x1="100"
+                  y1="6"
+                  x2="100"
+                  y2={tick.major ? '14' : '11'}
+                  transform={`rotate(${tick.i * 6} 100 100)`}
+                />
+              ))}
+            </g>
+            {/* 旋转虚线环：给「引擎在运转」一个持续的视觉证据（reduced 下停转） */}
+            <circle className="pre-core__orbit" cx="100" cy="100" r="78" />
+            {/* 轨道底线 + 进度弧：弧的形状在这，dashoffset 由上面的 rAF 每帧直写 */}
+            <circle className="pre-core__rail" cx="100" cy="100" r={CORE_RADIUS} />
+            <circle
+              ref={arcRef}
+              className="pre-core__arc"
+              cx="100"
+              cy="100"
+              r={CORE_RADIUS}
+              transform="rotate(-90 100 100)"
+              strokeDasharray={CORE_CIRCUMFERENCE}
+              strokeDashoffset={CORE_CIRCUMFERENCE}
+            />
+            {/* 指向光标的小标记：HUD 的「追踪」手感，rotate 由指针交互的 rAF 写 */}
+            <g ref={needleRef} className="pre-core__needle">
+              <line x1="100" y1="24" x2="100" y2="32" />
+            </g>
+          </svg>
+
+          <div className="pre-core__readout">
+            <span ref={corePctRef} className="pre-core__pct">
+              000
+            </span>
+            <span className="hud-sm pre-core__label">{LABELS.core}</span>
+          </div>
+        </div>
+
+        {/* 带标签的进度轨：把原来那条孤立的线收进一个有上下文的控件里 */}
+        <div className="pre-core__track" aria-hidden>
+          <span className="hud-sm pre-core__track-label">{LABELS.track}</span>
+          <span className="pre-core__track-rail">
+            <span ref={barRef} className="pre-core__track-fill" />
+          </span>
+          <span ref={coreValRef} className="hud-sm pre-core__track-val">
+            000%
+          </span>
         </div>
 
         {/* 进度每帧都在变，用 aria-live 播报会刷屏；改成只在"就绪"时播报一次 */}
@@ -410,18 +590,7 @@ export default function Preloader() {
         </span>
 
         {ready ? (
-          <button
-            ref={buttonRef}
-            type="button"
-            onClick={enter}
-            className="hud mt-8 px-6 py-3 transition-colors duration-[420ms] ease-out-expo"
-            style={{
-              border: '1px solid rgb(var(--c-line-2))',
-              borderRadius: 'var(--radius-panel)',
-              color: 'rgb(var(--c-fg))',
-              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-            }}
-          >
+          <button ref={buttonRef} type="button" onClick={enter} className="hud mt-8 px-6 py-3">
             {LABELS.enter}
             <span
               aria-hidden
