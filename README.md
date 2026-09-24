@@ -10,6 +10,18 @@ npm run typecheck  # tsc --noEmit，当前 0 错误
 npm run deploy     # 把 out/ 发到 GitHub Pages（+ /person 子路径）
 ```
 
+关于账号（本机同时登了两个 gh 账号，容易撞 403）：
+
+- `npm run deploy` 会自己用 `PAGES_GH_ACCOUNT`（默认 `lbb-xwq`）的 token 推 `gh-pages`，
+  不受当前活跃账号影响。
+- 但 `git push origin main` 走的是 git credential helper（仓库级配了 `manager`），
+  只会用 **gh 的活跃账号**。活跃账号是 `lbb-bob` 时推 `lbb-xwq/person` 会得到
+  `Permission to lbb-xwq/person.git denied to lbb-bob`。推源码前先切过去：
+
+```bash
+gh auth switch -u lbb-xwq && git push origin main   # 推完可切回 lbb-bob
+```
+
 关于路径，两个容易踩的坑：
 
 - **本地地址是根路径 `/`，不是 `/person/`**。`lib/base-path.ts` 里
