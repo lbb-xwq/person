@@ -71,6 +71,7 @@ export default function AltitudeGauge({ progressRef }: AltitudeGaugeProps) {
   return (
     <div
       ref={rootRef}
+      data-pw-gauge=""
       role="progressbar"
       aria-label="项目墙浏览进度"
       aria-valuemin={0}
@@ -167,11 +168,13 @@ export default function AltitudeGauge({ progressRef }: AltitudeGaugeProps) {
         </span>
       </div>
 
-      {/* 窄屏（≤1024px）：底部横向进度条，替代竖版高度计 */}
+      {/* 窄屏（≤1024px）：底部横向进度条，替代竖版高度计。
+          bottom 取 6.75rem 而不是 2.25rem：右下角那簇控件（声音 / 菜单）
+          高 58px + 下边 32px，压在底部时正好和这条 4vw 宽的进度条重叠。 */}
       <div
         aria-hidden
         className="min-[1025px]:hidden"
-        style={{ position: 'absolute', left: '4vw', right: '4vw', bottom: '2.25rem', height: 1 }}
+        style={{ position: 'absolute', left: '4vw', right: '4vw', bottom: '6.75rem', height: 1 }}
       >
         <span
           style={{

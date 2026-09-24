@@ -87,12 +87,14 @@ export default function HeroCenter() {
   return (
     <div
       className="absolute inset-0 flex items-center"
+      data-hero-center=""
       style={{ zIndex: 60, pointerEvents: 'none' }}
     >
-      <div style={{ position: 'relative', minHeight: '251px', width: 'min(896px, calc(100vw - 2 * clamp(1.5rem, 5.6vw, 80px)))', marginLeft: 'clamp(1.5rem, 5.6vw, 80px)' }}>
+      <div data-hero-center-inner="" style={{ position: 'relative', minHeight: '251px', width: 'min(896px, calc(100vw - 2 * clamp(1.5rem, 5.6vw, 80px)))', marginLeft: 'clamp(1.5rem, 5.6vw, 80px)' }}>
         {/* 姓名行：[ 中文名 / 拉丁名 ] + 放大中文名 + 职位（--c-dim） */}
         <div
           data-anim="name"
+          data-hero-name=""
           className="hud"
           style={{
             display: 'flex',
@@ -210,13 +212,14 @@ export default function HeroCenter() {
         </div>
 
         {/*
-          移动端补充指标：只在 ≤768px 显示。
-          display 用 Tailwind 的 flex / md:hidden 两个类控制（响应式变体排在后，能盖住 flex），
-          不要写进 inline style —— inline 的 display:flex 会反过来盖掉 md:hidden。
+          移动端补充指标。
+          显隐不能再用 Tailwind 的 md:hidden：横屏手机（宽 700–930px）走的是移动版式，
+          宽度却落在 md 以上。所以这里改用 data 钩子，由 mobile.css 里那条与
+          lib/viewport.ts 的 MOBILE_QUERY 逐字一致的媒体查询控制（默认 display:none）。
         */}
         <div
           data-anim="block"
-          className="flex items-center md:hidden"
+          data-hero-mobile-stats=""
           style={{ gap: '0.9rem', width: 'fit-content', marginTop: '1.25rem' }}
         >
           {hero.mobileStats.map((stat, i) => (

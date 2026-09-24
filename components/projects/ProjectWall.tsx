@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 
 import type { Project } from '@/lib/data/content';
 import { sel, useStore } from '@/lib/store';
+import { MOBILE_QUERY, watchMobile } from '@/lib/viewport';
 
 import AltitudeGauge from './AltitudeGauge';
 import ProjectCard from './ProjectCard';
@@ -39,7 +40,11 @@ const WALL_TOP = '6vh';
 /**
  * 卡墙尺寸用 CSS 变量下发给卡片，断点集中在这一个小 style 块里
  * （globals.css 是冻结文件，沿用 SmoothScroll 注入样式块的做法）。
- * desktop：卡宽 min(38vw, 520px) / 间隙 2.5rem；窄屏：min(46vw, 340px) / 1.25rem。
+ * desktop：卡宽 min(38vw, 520px) / 间隙 2.5rem；窄桌面：min(46vw, 340px) / 1.25rem。
+ *
+ * ≤767px（含横屏手机）不使用卡墙：斜向双列在 390px 宽下每张卡只剩 ~180px，
+ * 标题要折三行。换成单列全宽列表 + 原生滚动（[data-pw-list]），
+ * 这张样式表同时负责两者的显隐。
  */
 const WALL_CSS = `
 [data-pw-wall] {
@@ -48,13 +53,37 @@ const WALL_CSS = `
   --pw-gap: 2.5rem;
 }
 [data-pw-wall-inner] {
-  transform: rotate(-8deg);
+  transform: rotate(${WALL_ROTATION}deg);
   transform-origin: center center;
+}
+[data-pw-list] {
+  display: none;
 }
 @media (max-width: 1023px) {
   [data-pw-wall] {
     --card-w: min(46vw, 340px);
     --pw-gap: 1.25rem;
+  }
+}
+/* 断点与 lib/viewport.ts 的 MOBILE_QUERY 逐字一致（这里直接插入常量）：
+   两列斜向卡墙在窄屏/横屏手机上读不清，换单列全宽列表 + 原生滚动。 */
+@media ${MOBILE_QUERY} {
+  [data-pw-wall-viewport] {
+    display: none !important;
+  }
+  [data-pw-list] {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 0 1.25rem calc(2.5rem + env(safe-area-inset-bottom));
+    /* 横屏手机宽 844px：单列不封顶会得到一张 800px 宽的大卡，
+       一行字太长也占过动画幅。宽屏形态下把列表收在 640px 内居中。 */
+    max-width: 640px;
+    margin-inline: auto;
+  }
+  /* 列表里的卡片直接铺满一行（卡墙那边靠 --card-w 定宽） */
+  [data-pw-list] [data-pw-card] {
+    width: 100% !important;
   }
 }
 `;
@@ -95,6 +124,13 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
   const motion = useStore(sel.motion);
   const reduced = motion === 'reduced';
 
+  /**
+   * 窄屏判定：≤767px 换成单列原生滚动列表，就不再挂卡墙的监听（见下）。
+   * 初始 false 与 SSR 一致，挂载后一帧内校正，不会 hydration 报错。
+   */
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => watchMobile(setNarrow), []);
+
   const applyTransform = useCallback((y: number) => {
     const wall = wallRef.current;
     if (!wall) return;
@@ -114,6 +150,9 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
   }, [projects]);
 
   useEffect(() => {
+    // 窄屏走单列原生滚动列表，卡墙整套监听（wheel / touch / keydown / rAF）都不挂：
+    // 既不和页面滚动抢事件，也不自跑一个永远在算隐藏元素的惯性循环。
+    if (narrow) return;
     const view = viewportRef.current;
     const wall = wallRef.current;
     if (!view || !wall) return;
@@ -263,7 +302,7 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
       // 卸载时清掉 inline transform，只留注入 CSS 的那一帧基准旋转
       gsap.set(wall, { clearProps: 'transform' });
     };
-  }, [applyTransform, reduced]);
+  }, [applyTransform, reduced, narrow]);
 
   // 整屏入场：y 8% → 0、opacity 0 → 1，1s ease-out-expo（= --ease-out-expo）
   useEffect(() => {
@@ -285,11 +324,12 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
   }, [reduced]);
 
   return (
-    <div ref={rootRef} style={{ position: 'relative', height: '100%', width: '100%' }}>
+    <div ref={rootRef} data-pw-root="" style={{ position: 'relative', height: '100%', width: '100%' }}>
       <style dangerouslySetInnerHTML={{ __html: WALL_CSS }} />
 
       {/* 顶部 HUD 行 */}
       <div
+        data-pw-hud=""
         className="hud"
         style={{
           position: 'absolute',
@@ -306,10 +346,26 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
         }}
       >
         <span>INDEX: {projects.length} PROJECTS</span>
-        <span>SCROLL / 滚轮或 ↑↓ 浏览</span>
+        {/* 触屏没有滚轮，也不是内部卡墙而是原生滚动列表：窄屏换一套提示。
+            显隐用 data 钩子 + mobile.css（而不是 Tailwind 的 md 断点），
+            原因同 HeroCenter：横屏手机的宽度会落在 md 以上。 */}
+        <span data-pw-hint-desktop="">SCROLL / 滚轮或 ↑↓ 浏览</span>
+        <span data-pw-hint-mobile="">点按卡片查看详情</span>
       </div>
 
       <AltitudeGauge progressRef={progressRef} />
+
+      {/*
+        移动端（窄屏 / 横屏手机）：单列全宽卡片 + 原生滚动。
+        只有 3 个项目时，两列卡墙在 390px 宽下每张卡才 180px，标题要折成三行；
+        换成单列全宽后一行放得下，也能用系统原生的滚动惯性/回弹。
+        与桌面卡墙共用 ProjectCard 和同一份数据，md 断点决定谁显示。
+      */}
+      <div data-pw-list="">
+        {projects.map((project) => (
+          <ProjectCard key={project.slug} project={project} reduced={reduced} />
+        ))}
+      </div>
 
       {/*
         卡墙视口。水平居中用父级 flex 而不是 transform 居中：
@@ -318,6 +374,7 @@ export default function ProjectWall({ projects }: ProjectWallProps) {
       <div
         ref={viewportRef}
         data-pw-wall=""
+        data-pw-wall-viewport=""
         style={{
           position: 'absolute',
           inset: 0,

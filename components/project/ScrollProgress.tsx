@@ -64,6 +64,7 @@ export default function ScrollProgress() {
   return (
     <div
       ref={rootRef}
+      data-pj-progress=""
       role="progressbar"
       aria-label="页面阅读进度"
       aria-valuemin={0}

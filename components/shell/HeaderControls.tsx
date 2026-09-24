@@ -63,11 +63,13 @@ export default function HeaderControls() {
     <>
       <header
         ref={headerRef}
+        data-site-header=""
         className="fixed bottom-8 right-10 flex items-end gap-4"
         style={{ zIndex: 'var(--z-hud)', mixBlendMode: 'difference', opacity: 0 }}
       >
         <button
           type="button"
+          data-sound-btn=""
           onClick={toggleSound}
           aria-pressed={audioOn}
           aria-label={audioOn ? '关闭声音引擎' : '打开声音引擎'}
@@ -94,6 +96,7 @@ export default function HeaderControls() {
 
         <button
           type="button"
+          data-menu-btn=""
           onClick={toggleMenu}
           aria-expanded={menuOpen}
           aria-controls="nav-overlay"
@@ -117,6 +120,7 @@ export default function HeaderControls() {
           </span>
           <span
             aria-hidden
+            data-menu-icon=""
             className="flex h-10 w-10 items-center justify-center"
             style={{ background: 'rgb(255 255 255)', borderRadius: 8 }}
           >
@@ -129,45 +133,51 @@ export default function HeaderControls() {
             </svg>
           </span>
         </button>
-      </header>
 
-      <button
-        type="button"
-        onClick={toggleSettings}
-        aria-expanded={settingsOpen}
-        aria-controls="settings-panel"
-        aria-label={settingsOpen ? '关闭系统设置面板' : '打开系统设置面板'}
-        className="fixed right-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center"
-        style={{ zIndex: 'var(--z-hud)', mixBlendMode: 'difference', top: 'calc(50% - 4px)' }}
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          fill="none"
-          aria-hidden
-          style={{
-            transform: `rotate(${settingsOpen ? 45 : 0}deg)`,
-            transition: 'transform .6s cubic-bezier(.16,1,.3,1)',
-          }}
+        {/*
+          齿轮（SYS）。桌面仍用 fixed 贴在右缘垂直居中 —— fixed 元素不参与 flex 布局，
+          所以把它放进 header 里对桌面版式零影响；移动端则由 mobile.css 改成 static，
+          和 SOUND / MENU 排成同一簇（见 [data-gear-btn]）。
+        */}
+        <button
+          type="button"
+          data-gear-btn=""
+          onClick={toggleSettings}
+          aria-expanded={settingsOpen}
+          aria-controls="settings-panel"
+          aria-label={settingsOpen ? '关闭系统设置面板' : '打开系统设置面板'}
+          className="fixed right-0 flex h-10 w-10 -translate-y-1/2 items-center justify-center"
+          style={{ zIndex: 'var(--z-hud)', mixBlendMode: 'difference', top: 'calc(50% - 4px)' }}
         >
-          <circle cx="10" cy="10" r="3" stroke="rgb(255 255 255 / 0.8)" strokeWidth="1.4" />
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-            const a = (i * Math.PI) / 4;
-            return (
-              <line
-                key={i}
-                x1={10 + Math.cos(a) * 4.6}
-                y1={10 + Math.sin(a) * 4.6}
-                x2={10 + Math.cos(a) * 7.4}
-                y2={10 + Math.sin(a) * 7.4}
-                stroke="rgb(255 255 255 / 0.8)"
-                strokeWidth="1.4"
-              />
-            );
-          })}
-        </svg>
-      </button>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden
+            style={{
+              transform: `rotate(${settingsOpen ? 45 : 0}deg)`,
+              transition: 'transform .6s cubic-bezier(.16,1,.3,1)',
+            }}
+          >
+            <circle cx="10" cy="10" r="3" stroke="rgb(255 255 255 / 0.8)" strokeWidth="1.4" />
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+              const a = (i * Math.PI) / 4;
+              return (
+                <line
+                  key={i}
+                  x1={10 + Math.cos(a) * 4.6}
+                  y1={10 + Math.sin(a) * 4.6}
+                  x2={10 + Math.cos(a) * 7.4}
+                  y2={10 + Math.sin(a) * 7.4}
+                  stroke="rgb(255 255 255 / 0.8)"
+                  strokeWidth="1.4"
+                />
+              );
+            })}
+          </svg>
+        </button>
+      </header>
 
       <span className="sr-only">{`${person.name} — ${person.role}`}</span>
     </>

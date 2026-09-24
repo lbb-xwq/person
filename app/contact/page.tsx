@@ -94,6 +94,7 @@ export default function ContactPage() {
         <a
           href={`mailto:${person.email}`}
           data-cursor-hover
+          data-contact-email=""
           style={{
             fontFamily: 'var(--font-display)',
             fontSize: 'clamp(1.5rem, 4vw, 3rem)',

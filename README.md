@@ -2,10 +2,29 @@
 
 ## 1. 运行
 
+```bash
 npm install
-npm run dev        # http://localhost:3000
-npm run build      # 生产构建
+npm run dev        # http://localhost:3000/      （开发不带 basePath，直接开根路径）
+npm run build      # 生产构建：静态导出到 out/，资源带 /person 前缀
 npm run typecheck  # tsc --noEmit，当前 0 错误
+npm run deploy     # 把 out/ 发到 GitHub Pages（+ /person 子路径）
+```
+
+关于路径，两个容易踩的坑：
+
+- **本地地址是根路径 `/`，不是 `/person/`**。`lib/base-path.ts` 里
+  `BASE_PATH` 只在 `NODE_ENV=production` 时取 `/person`（next.config.ts 的 basePath
+  与 `assetPath()` 共用它）。所以 dev 直接开 http://localhost:3000/ ；
+  生产产物（`out/`）部署在 GitHub Pages 的 `/person/` 子路径下。
+- **`npm start` 用不了**。项目是 `output: 'export'` 纯静态导出，`.next` 里没有
+  可启动的生产服务，`next start` 会报 “Could not find a production build”。
+  要预览产物就用静态服务器，并把 `out/` 放在名为 `person` 的目录下：
+
+```bash
+mkdir -p /tmp/site/person && cp -r out/* /tmp/site/person/ && npx serve /tmp/site
+# 然后访问 http://localhost:3000/person/
+```
+
 进入页面先看到开机序列，点 CLICK TO ENTER 揭幕（这一步同时获得用户手势权限，用于启动音频引擎）。
 
 ## 2. 技术栈（与参考站对齐）
@@ -41,7 +60,48 @@ npm run typecheck  # tsc --noEmit，当前 0 错误
 - 性能档 Saver：不创建 WebGL canvas（改用纯 CSS 网格背景）、降低粒子数、关闭滚动擦洗（只画第 1 帧）
 - 页面隐藏时停止 FPS 采样与 WebGL 渲染循环；光标静止时停止 rAF；所有监听 / rAF / GSAP 时间线 / ScrollTrigger / three 资源在卸载时清理
 
-## 5. 目录结构
+## 5. 移动端版式（≤767px 与横屏手机）
+
+桌面版是按 1440×900 视口 1:1 还原的（分屏 50%、像素坐标、68.26% 偏移），
+所以移动端不是「缩小」，而是另一套单列版式，集中在 `app/mobile.css`。
+
+断点只有一处定义：`lib/viewport.ts` 的 `MOBILE_QUERY`
+`(max-width: 767px), (pointer: coarse) and (max-height: 520px)` ——
+后半条是横屏手机（宽 844px 却只有 390px 高，按宽度算会落进桌面版式并互相压叠）。
+`mobile.css` 的媒体查询与它逐字一致，JS 侧（ScrollSmoother 是否创建、卡墙是否挂监听）
+也读同一个常量。
+
+为什么覆盖层必须用 `!important`：桌面版的定位全写在组件的 inline style 上，
+优先级高于任何选择器，只有 `!important` 能改写它。这一层不是「补丁」，
+而是被 inline 布局倒逼出来的唯一可行做法（组件里埋 `data-*` 钩子做挂点）。
+
+各页处理：
+
+- 全局：控件簇从「右下 420px 宽」改为右上角紧凑一排（声音 / 菜单 / 齿轮）；
+  导航面板从右下胶囊展开改为一屏宽的底部 Sheet；设置面板铺满全宽；
+  补 `viewport-fit=cover` 与 `env(safe-area-inset-*)`；关闭 iOS 文字膨胀。
+- `/`：`100svh` 单屏绝对定位 → 可自然撑高的单列流（矮机型不裁内容）：
+  跑马灯通栏置顶、标题 `clamp(2.25rem,12.5vw,3.25rem)`、开发者数据两列、页脚竖排。
+  `clamp` 下限 72px 的桌面巨标题在 390px 下会横向溢出，必须整体下调一档。
+- `/projects`：斜向双列卡墙 → 单列全宽卡片 + 原生滚动（`[data-pw-list]`）。
+  两列卡墙在 390px 宽下每张卡只剩 ~180px、标题折三行；只有 3 个项目时卡墙也
+  没有可滚动的余量，仪表盘会永远停在 000。移动端不挂 wheel / touch / keydown / rAF，
+  由系统原生滚动接管。
+- `/about`：右上角面包屑（差值混合）挪到左上角，避开控件簇；`≤1024px` 的帧序列
+  本来就已经退回到正文流里。
+- `/projects/[slug]`：hero 的 `padding-top` 从 10rem 收到 6.5rem；滚动进度条缩短并贴安全区；
+  展示网格本来就是 `auto-fit`，窄屏自然落成一列。
+- `/contact`、404：本来就是 clamp + 居中，只下调邮箱字号防换行。
+
+滚动行为：移动端**不创建 ScrollSmoother**，退回原生滚动 —— 触屏上它只能带来
+「延迟跟手」，代价却是所有 `position:fixed` 浮层要额外补反向位移。
+`#smooth-wrapper` 的 `position:fixed;overflow:hidden` 由状态而非媒体查询控制，
+否则拿掉 ScrollSmoother 后页面会卡在一个不能滚动的固定框里。
+
+横屏手机（844×390）走同一套移动版式：单列流式布局会变成可滚动的，
+而桌面版式在 390px 高的视口里 HUD / 页脚 / 控件簇会互相压叠。
+
+## 6. 目录结构
 
 app/                       路由（layout / page / about / projects / projects/[slug] / contact / not-found / icon.svg）
 components/shell/          全局外壳：Preloader、HeaderControls、NavOverlay、SettingsPanel、CustomCursor、
@@ -54,9 +114,11 @@ NextProjectLink、useFixedPin
 components/canvas/         NoiseGridBackground、HeroParticles
 components/ui/             ScrambleText、Marquee、Reveal
 lib/store.ts               zustand 状态（entered/menu/settings/audio/track/theme/motion/tier/fps/dpr）
+lib/viewport.ts            MOBILE_QUERY（移动端判定的唯一来源）+ watchMobile 订阅助手
 lib/data/content.ts        所有文案与数据（替换内容改这里）
 lib/audio.ts               Web Audio 音轨 + 音效 + getLevel()
 lib/tier.ts                性能档判定
 lib/shaders/               GLSL（噪声网格、粒子）
 app/fonts、public/images   自托管字体（构建时打包成带哈希产物）与照片占位图
+app/mobile.css             移动端版式覆盖层（见第 5 节）
 lib/base-path.ts           basePath 常量 + public 资源前缀 helper

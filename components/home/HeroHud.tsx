@@ -32,6 +32,7 @@ function MarqueeStack() {
   return (
     <div
       aria-hidden
+      data-hero-marquee=""
       style={{
         position: 'absolute',
         right: 0,
@@ -149,6 +150,7 @@ function HudStats() {
   return (
     <div
       aria-hidden
+      data-hero-stats=""
       style={{
         position: 'absolute',
         left: '68.26%',
@@ -197,7 +199,7 @@ function HudStats() {
         <span>{status}</span>
       </div>
 
-      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 15 }}>
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 15 }} data-hero-stat-list="">
         {hero.stats.map((s, i) => (
           <div key={s.label}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -249,6 +251,7 @@ function HudStats() {
       </div>
 
       <div
+        data-hero-terminal=""
         style={{
           marginTop: 33,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -302,6 +305,7 @@ function BottomCols() {
 
   return (
     <footer
+      data-hero-foot=""
       style={{
         position: 'absolute',
         left: 40,

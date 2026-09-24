@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 export default function ProjectsPage() {
   return (
     <main
+      data-pw-page=""
       style={{
         position: 'relative',
         height: '100svh',

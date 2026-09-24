@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { sel, useStore } from '@/lib/store';
+import { MOBILE_QUERY } from '@/lib/viewport';
 import {
   NOISE_GRID_BASE_PX,
   createNoiseGridUniforms,
@@ -35,7 +36,7 @@ function useDocumentVisible(): boolean {
 function useCompactGrid(): boolean {
   const [compact, setCompact] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
+    const mq = window.matchMedia(MOBILE_QUERY);
     const onChange = () => setCompact(mq.matches);
     onChange();
     mq.addEventListener('change', onChange);

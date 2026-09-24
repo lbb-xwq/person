@@ -67,6 +67,7 @@ export default function FixedTitle({ triggerRef }: FixedTitleProps) {
   return (
     <div
       ref={titleRef}
+      data-about-crumb=""
       className="about-page"
       style={{
         position: 'fixed',

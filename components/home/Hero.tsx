@@ -42,6 +42,7 @@ export default function Hero() {
       {/* 粒子层：全宽 + lighten（实测左 20px / 宽 1384 / mix-blend-mode: lighten） */}
       <div
         aria-hidden
+        data-hero-particles=""
         style={{
           position: 'absolute',
           left: 20,

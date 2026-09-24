@@ -1,6 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
+// 移动端版式单独成文件：globals.css 是「桌面还原」的冻结基线，
+// 所有 ≤767px 的覆盖集中在 mobile.css，改版式不用在 900 行里翻找。
+import './mobile.css';
 
 import CustomCursor from '@/components/shell/CustomCursor';
 import FpsMeter from '@/components/shell/FpsMeter';
@@ -19,6 +22,19 @@ export const metadata: Metadata = {
   description: meta.description,
   applicationName: meta.siteName,
   authors: [{ name: meta.copyright }],
+};
+
+/**
+ * 视口声明。
+ *  - width=device-width：不要用 980px 的虚拟视口去缩排版
+ *  - viewportFit=cover：刘海屏/手势条区域交给 env(safe-area-inset-*) 处理（见 mobile.css）
+ *  - themeColor：移动端浏览器地址栏与页面底色一致，不出现白条
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#020202',
 };
 
 /**

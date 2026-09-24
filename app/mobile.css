@@ -1,0 +1,321 @@
+/* ============================================================
+   MOBILE · 移动端版式（≤767px）
+   ------------------------------------------------------------
+   桌面版是按 1440×900 视口 1:1 还原的：分屏 50%、像素坐标、68.26% 偏移、
+   192px 固定读数块……这些定位全部写在组件的 inline style 上。
+   inline style 的优先级高于任何选择器，所以这一层必须用 !important 才能
+   把它们改写成单列版式 —— 这是本文件存在的理由，不是为了图省事。
+
+   组织方式：按「全局外壳 → 各页面」分组，每条规则都挂在组件里埋好的
+   data-* 钩子上（在源码里搜同名属性就能找到对应元素）。
+
+   断点取 767px 与 Tailwind 的 md 对齐，也和 NoiseGridBackground 已经在用的
+   小屏判定一致；Preloader 自己的 640px 规则保持不变（它本来就做了窄屏版）。
+   ============================================================ */
+
+/* 移动端浏览器会「文字膨胀」：正文被自动放大后与固定字号标签对不齐，
+   这里显式关掉，让所有 px/rem 读数保持原尺寸。 */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 默认（桌面）状态：只在移动版式里出现的元素先藏起来。
+   显隐必须由这里控制而不是 Tailwind 的 md 断点 —— 横屏手机宽 700–930px，
+   宽度在 md 以上但版式是移动版（见 lib/viewport.ts 的 MOBILE_QUERY）。 */
+[data-hero-mobile-stats],
+[data-pw-hint-mobile] {
+  display: none;
+}
+
+/* 断点必须与 lib/viewport.ts 的 MOBILE_QUERY 逐字一致：
+   JS（ScrollSmoother 是否创建 / 卡墙是否挂监听）和样式（这里）共用同一个判定。 */
+@media (max-width: 767px), (pointer: coarse) and (max-height: 520px) {
+  /* 只在移动版式里出现的元素 */
+  [data-hero-mobile-stats] {
+    display: flex !important;
+    align-items: center;
+  }
+  [data-pw-hint-desktop] {
+    display: none !important;
+  }
+  [data-pw-hint-mobile] {
+    display: inline;
+  }
+  /* 页面级横向溢出兜底：卡墙是旋转过的，旋转后的包围盒比容器宽。
+     用 clip 而不是 hidden —— hidden 会把 html/body 变成滚动容器，
+     让 window.scrollY 与 ScrollTrigger 一起失准。 */
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  /* ============================================================
+     全局外壳
+     ============================================================ */
+
+  /* ---- 站点控件簇（HeaderControls）----
+     桌面：贴右下（bottom 32 / right 40），总宽 ≈ 420px，390 视口下直接溢出到屏幕外。
+     移动：整簇移到右上角，声音 → 菜单 → 齿轮 紧凑一排；齿轮从「贴右缘垂直居中」
+     收进簇里，不再需要 fixed + translate。 */
+  [data-site-header] {
+    left: auto !important;
+    right: 0.75rem !important;
+    bottom: auto !important;
+    /* 首页跑马灯占顶部 42px，控件簇必须压在它下面 */
+    top: calc(3.5rem + env(safe-area-inset-top)) !important;
+    gap: 0.5rem !important;
+    align-items: center !important;
+  }
+  [data-sound-btn] {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  [data-sound-btn] svg {
+    width: 26px !important;
+    height: 30px !important;
+  }
+  [data-menu-btn] {
+    width: auto !important;
+    height: 40px !important;
+    min-width: 0 !important;
+    padding: 0 5px 0 14px !important;
+    border-radius: 8px !important;
+  }
+  [data-menu-icon] {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 6px !important;
+  }
+  [data-gear-btn] {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    transform: none !important;
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* ---- 导航面板 ----
+     桌面是 320×557 挂在右下胶囊上方；移动改成一屏宽的底部面板（Sheet），
+     展开原点也从「右下」改到「下中」，否则会横向长开。 */
+  #nav-overlay {
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-height: calc(100dvh - 1.5rem - env(safe-area-inset-bottom)) !important;
+    transform-origin: bottom center !important;
+    border-radius: 14px !important;
+  }
+
+  /* ---- 系统设置面板 ----
+     桌面从右缘滑出 440px；窄屏直接铺满，并给手势条留出安全区。 */
+  #settings-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ============================================================
+     首页 /
+     ============================================================ */
+
+  /* 桌面：单屏 100svh、overflow hidden，所有块用绝对坐标摆位。
+     移动：改成可以自然撑高的单列流式布局 —— 矮机型（≤667px 高）也不会有内容被裁掉，
+     需要时页面可以滚动。子元素的位置覆盖在下面逐条给出。 */
+  .home-hero {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    height: auto !important;
+    min-height: 100svh !important;
+    overflow: visible !important;
+    padding: 0 0 calc(1.5rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* 粒子层：桌面是「左右各留 20px 的竖条」；移动端铺满整屏当背景，
+     用 fixed 把它从文档流里摘出去（否则它会占掉一整个 flex 行）。 */
+  [data-hero-particles] {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  /* 毛玻璃面板：桌面是左半屏；移动端铺满做底纹，圆角与左右边框去掉，
+     底部那行 FRONTEND · SHENZHEN 与页脚重复，直接不显示。 */
+  [data-hero-panel] {
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+  [data-hero-panel] > div {
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+  }
+  [data-hero-panel] p {
+    display: none !important;
+  }
+
+  /* 跑马灯：桌面是右上角半宽带子（width 50% / top 32）；移动端通栏压在最上面，
+     给右上角控件簇让出位置。 */
+  [data-hero-marquee] {
+    position: static !important;
+    order: 0;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    min-height: 42px !important;
+    padding-inline: 1rem !important;
+    border-top: 0 !important;
+  }
+
+  /* 中央内容层：桌面垂直居中 + 左内缩；移动端顶部对齐，左右只留 1.25rem。
+     padding-top 让标题避开上面 42px 的跑马灯与右上角 40px 高的控件簇。 */
+  [data-hero-center] {
+    position: static !important;
+    order: 1;
+    padding: 4.5rem 1.25rem 0 !important;
+    width: 100% !important;
+  }
+  [data-hero-center-inner] {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin-left: 0 !important;
+  }
+  /* 姓名行：桌面用 absolute 吊在标题上方；移动端回到文档流当第一行 */
+  [data-hero-name] {
+    position: static !important;
+    margin-bottom: 1rem !important;
+    gap: 0.5rem !important;
+  }
+  /* 巨标题：桌面 clamp 下限是 72px（够放下「前端开发」），窄屏照搬会横向溢出，
+     这里整体下调一档，并顺手把行高从固定像素改成倍数。 */
+  [data-hero-center-inner] h1 {
+    font-size: clamp(2.25rem, 12.5vw, 3.25rem) !important;
+    line-height: 1.04 !important;
+  }
+
+  /* 开发者数据块：桌面固定在视口 68.26% 处（会和标题打架）；
+     移动端落到页脚之上，margin-top: auto 把它和页脚一起压到底部。 */
+  [data-hero-stats] {
+    position: static !important;
+    order: 2;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+    margin: auto 1.25rem 0 !important;
+  }
+  /* 两条指标改成两列并排，省掉一半竖向空间 */
+  [data-hero-stat-list] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem 1.25rem !important;
+    margin-top: 0.85rem !important;
+  }
+  /* 终端读数四行在窄屏只占位置不给信息，去掉（状态点那行已经说明了当前档位） */
+  [data-hero-terminal] {
+    display: none !important;
+  }
+
+  /* 页脚两列：桌面左右各一列；移动端改成竖排，邮箱才有足够宽度不被截断 */
+  [data-hero-foot] {
+    position: static !important;
+    order: 3;
+    left: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: auto !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+    margin: 1.5rem 1.25rem 0 !important;
+  }
+  [data-hero-foot] > div {
+    line-height: 1.45 !important;
+  }
+
+  /* ============================================================
+     项目页 /projects
+     ============================================================ */
+
+  /* 项目页在移动端换成原生滚动的单列列表（见 ProjectWall 的 [data-pw-list]）。
+     页面自己的 100svh + overflow:hidden 是给「单屏不滚动卡墙」的，
+     这里必须放开，否则列表被裁在一屏内且滑不动。 */
+  [data-pw-page] {
+    height: auto !important;
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+  /* 卡墙容器本身也是 height:100%，跟着变成内容高 */
+  [data-pw-root] {
+    height: auto !important;
+  }
+
+  /* 高度计读的是卡墙的内部位移；移动端没有卡墙，读数永远是 000，直接隐藏。
+     （原生滚动本身就有足够的滚动反馈，不需要额外仪表） */
+  [data-pw-gauge] {
+    display: none !important;
+  }
+
+  /* 顶部状态行：桌面是绝对定位在卡墙上方的一行；移动端当列表的表头，
+     从文档流里走，并在左上角排两行（右上角让给控件簇）。
+     下内边距留 3.5rem：控件簇占顶部 56–96px，第一张卡必须从它下面开始。 */
+  [data-pw-hud] {
+    position: static !important;
+    padding: calc(0.9rem + env(safe-area-inset-top)) 1.25rem 3.5rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.15rem !important;
+    font-size: 9.5px !important;
+  }
+
+  /* ============================================================
+     项目详情 /projects/[slug]
+     ============================================================ */
+
+  /* Hero 的 padding-top 是照着「右上角固定大标题」留的，移动端没有那层，收回来。 */
+  [data-pj-hero] {
+    padding: 6.5rem 1.25rem 4rem !important;
+  }
+  /* 左下角滚动进度：贴到安全边距内并缩短进度条 */
+  [data-pj-progress] {
+    left: 1.25rem !important;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
+    gap: 0.5rem !important;
+  }
+  [data-pj-progress] > span:last-child {
+    width: 4.5rem !important;
+  }
+
+  /* ============================================================
+     关于页 /about
+     ============================================================ */
+
+  /* 右上角面包屑（差值混合）与右上角控件簇会重叠；移动端挪到左上角。
+     ScrollTrigger 的缩放原点也跟着从 top right 改到 top left。 */
+  [data-about-crumb] {
+    left: 1rem !important;
+    right: auto !important;
+    top: calc(0.9rem + env(safe-area-inset-top)) !important;
+    text-align: left !important;
+    max-width: 55% !important;
+    transform-origin: top left !important;
+  }
+  [data-about-crumb] nav {
+    justify-content: flex-start !important;
+  }
+
+  /* ============================================================
+     联系页 /contact
+     ============================================================ */
+
+  /* 邮箱：桌面字号下限 1.5rem 时「bingbing.liu@root.global.net」在 390 宽下会换行，
+     下调一档让它尽量保持一行。 */
+  [data-contact-email] {
+    font-size: clamp(1.05rem, 5vw, 1.5rem) !important;
+  }
+}

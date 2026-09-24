@@ -40,6 +40,7 @@ export default function HeroPanel() {
   return (
     <div
       className="absolute left-0 top-0 h-full w-1/2"
+      data-hero-panel=""
       style={{ zIndex: 50, mixBlendMode: 'plus-lighter', pointerEvents: 'none' }}
     >
       {/* 扫描线：1px 横线 + hero-scan 4s 线性循环（减少动效时直接不渲染） */}

@@ -97,6 +97,7 @@ export default function ProjectDetail({ project, next }: ProjectDetailProps) {
 
       <section
         ref={heroRef}
+        data-pj-hero=""
         className="grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:items-start"
         style={{
           position: 'relative',
